@@ -7,46 +7,54 @@ use Apache::Log();
 use Apache::URI();
 
 use vars qw($VERSION);
-$VERSION = "0.02";
+$VERSION = "0.03";
 
 sub handler {
 	my $r = shift;
 	my $qualifiedName = join(' ', __PACKAGE__, 'handler'); # name to log
 	my $dbg_msg;
+	my $uri_ref = Apache::URI->parse($r);
 	if ($r->header_in('Accept-Encoding')) {
 		$dbg_msg = ' with annonced Accept-Encoding: '.$r->header_in('Accept-Encoding');
 	} else {
 		$dbg_msg = ' with no Accept-Encoding HTTP header.';
 	}
-	my $uri_ref = Apache::URI->parse($r);
-	$r->log->debug($qualifiedName.' has client '.$r->header_in('User-Agent')
+	$r->log->debug($qualifiedName.' has a client '.$r->header_in('User-Agent')
 		.' which requests scheme '.$uri_ref->scheme().' over '.$r->protocol.' for uri = '.$r->uri.$dbg_msg);
 	return DECLINED unless $r->header_in('Accept-Encoding') =~ /gzip/io; # have nothing to downgrade
 
 	# since the compression is ordered we have a job:
 	my $msg = ' downgrades the Accept-Encoding due to '; # message patern to log
 
+	# Range for any Client:
+	# =====================
 	if ($r->header_in('Range')) {
 		$r->headers_in->unset('Accept-Encoding');
-		$r->log->info($qualifiedName.$msg.'Range HTTP header ', $r->uri);
+		$r->log->info($qualifiedName.$msg.'Range HTTP header');
 		return OK;
 	}
 
+	# NN-4.X:
+	# =======
 	if (($r->header_in('User-Agent') =~ /Mozilla\/4\./o) and (!($r->header_in('User-Agent') =~ /compatible/io))) {
-		if (($r->content_type =~ /application\/x-javascript/io) or ($r->content_type =~ /text\/css/io)) {
+		my $printable = lc $r->dir_config('NetscapePrintable') eq 'on';
+		if ( $printable ){
 			$r->headers_in->unset('Accept-Encoding');
-			$r->log->info($qualifiedName.$msg.'content type for NN 4.XX', $r->uri);
+			$r->log->info($qualifiedName.$msg.'printable for NN-4.X');
+		} elsif (($r->content_type =~ /application\/x-javascript/io) or ($r->content_type =~ /text\/css/io)) {
+			$r->headers_in->unset('Accept-Encoding');
+			$r->log->info($qualifiedName.$msg.'content type for NN-4.X');
 		}
 		return OK;
 	}
 
-# uncomment the following branch to make your content printable on Netscape Navigator 4.XX:
-#
-#	if (($r->header_in('User-Agent') =~ /Mozilla\/4\./o) and (!($r->header_in('User-Agent') =~ /compatible/io))) {
-#		$r->headers_in->unset('Accept-Encoding');
-#		$r->log->info($qualifiedName.$msg.'NN 4.XX', $r->uri);
-#		return OK;
-#	}
+	# M$IE:
+	# =====
+	if (($uri_ref->scheme() =~ /https/io) and ($r->header_in('User-Agent') =~ /MSIE/io)) {
+		$r->headers_in->unset('Accept-Encoding');
+		$r->log->info($qualifiedName.$msg.'MSIE over SSL');
+		return OK;
+	}
 	return OK;
 }
 
@@ -65,6 +73,7 @@ for some buggy browsers.
   <Location /devdoc/Dynagzip>
       SetHandler perl-script
       PerlFixupHandler Apache::CompressClientFixup
+      PerlSetVar NetscapePrintable On
       Order Allow,Deny
       Allow from All
   </Location>
@@ -126,7 +135,7 @@ It would help to
 
 =head1 DESCRIPTION
 
-This handler is supposed to serve the Fix-Up stage on C<mod-perl> enabled Apache-1.3.X.
+This handler is supposed to serve the C<fixup> stage on C<mod-perl> enabled Apache-1.3.X.
 
 It unsets HTTP request header C<Accept-Encoding> for the following web clients:
 
@@ -160,13 +169,14 @@ Microsoft states that this problem was first corrected in Internet Explorer 6 Se
 
 Since then, later versions of MSIE are not supposed to carry this bug at all.
 
-Since the effect is not investigated in appropriate details for earlier versions of MSIE,
-this version of the handler does not restrict compression for any MSIE.
+Because the effect is not investigated in appropriate details,
+this version of the handler does not restrict compression for MSIE,
+except C<HTTPS>. By default, this version turnes compression off for MSIE over SSL.
 
-=head2 Netscape 4.XX
+=head2 Netscape 4.X
 
 This is C<HTTP/1.0> client.
-Netscape 4.XX is failing to
+Netscape 4.X is failing to
 
 =over 4
 
@@ -184,7 +194,12 @@ See detailed description of these bugs at
 http://www.schroepl.net/projekte/mod_gzip/browser.htm - Michael Schroepl's Web Site.
 
 This version serves cases (a) and (b) as default for this type of browsers.
-This version contains commented code to serve cases (c) and (d).
+This version serves cases (c) and (d) conditionally:
+To activate printability for C<Netscape Navigator 4.X> you need to place
+
+    PerlSetVar NetscapePrintable On
+      
+in your C<httpd.conf>. It turns off any compression for that buggy browser.
 
 =head2 Partial Request from Any Web Client
 
@@ -222,3 +237,4 @@ C<Apache::Dynagzip> at F<http://search.cpan.org/author/SLAVA/>
 Michael Schroepl's Web Site at F<http://www.schroepl.net/projekte/mod_gzip/browser.htm>
 
 =cut
+
