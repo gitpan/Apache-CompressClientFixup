@@ -7,7 +7,7 @@ use Apache::Log();
 use Apache::URI();
 
 use vars qw($VERSION);
-$VERSION = "0.05";
+$VERSION = "0.06";
 
 sub handler {
 	my $r = shift;
@@ -15,7 +15,7 @@ sub handler {
 	my $dbg_msg;
 	my $uri_ref = Apache::URI->parse($r);
 	if ($r->header_in('Accept-Encoding')) {
-		$dbg_msg = ' with annonced Accept-Encoding: '.$r->header_in('Accept-Encoding');
+		$dbg_msg = ' with announced Accept-Encoding: '.$r->header_in('Accept-Encoding');
 	} else {
 		$dbg_msg = ' with no Accept-Encoding HTTP header.';
 	}
@@ -37,6 +37,14 @@ sub handler {
 
 	# NN-4.X:
 	# =======
+	# 
+	# From: Michael.Schroepl@telekurs.de
+	# To: 	mod_gzip@lists.over.net
+	# Date: Wed, 15 Jan 2003 20:05:06 +0200
+	#
+	# ... Our customers still include 17% Netscape 4 users, sigh ...
+	# 
+ 
 	if ( ($r->header_in('User-Agent') =~ /Mozilla\/4\./o) and (!($r->header_in('User-Agent') =~ /compatible/io))) {
 		my $printable = lc $r->dir_config('NetscapePrintable') eq 'on';
 		if ( $printable ){
@@ -71,20 +79,37 @@ for some buggy browsers.
 
 =head1 SYNOPSIS
 
+It is assumed that the C<Apache::CompressClientFixup> package is installed in your Perl library.
+See C<README> for installation instructions if necessary.
+
+You may use something like the following in your C<httpd.conf>:
+
   PerlModule Apache::CompressClientFixup
   <Location /devdoc/Dynagzip>
       SetHandler perl-script
       PerlFixupHandler Apache::CompressClientFixup
-      PerlSetVar NetscapePrintable On
       Order Allow,Deny
       Allow from All
+  </Location>
+
+You can, for example, restrict compression for MSIE over SSL
+and restrict compression for C<Netscape Navigator 4.X> with
+
+  PerlModule Apache::CompressClientFixup
+  <Location /devdoc/Dynagzip>
+    SetHandler perl-script
+    PerlFixupHandler Apache::CompressClientFixup
+    PerlSetVar RestrictMSIEoverSSL On
+    PerlSetVar NetscapePrintable On
+    Order Allow,Deny
+    Allow from All
   </Location>
 
 =head1 INTRODUCTION
 
 Standard gzip compression significantly scales bandwidth,
-and helps to please clients, who receive the compressed content faster,
-especially on dial-ups.
+and helps to satisfy clients, who receive the compressed content faster,
+especially on dial up's.
 
 Obviously, the success of proper implementation of content compression depends on quality of both sides
 of the request-response transaction.
@@ -118,9 +143,9 @@ to the client which fails to declare self capability to uncompress data accordin
 Thinking this way, we would try to unset the incoming C<Accept-Encoding> HTTP header
 for those buggy clients, because they would better never set it up...
 
-We would separate this fix-up handler from the main compression module for a good reason.
+We would separate this fixup handler from the main compression module for a good reason.
 Basically, we would benefit from this extraction, because in this case
-we may create only one common fix-up handler for all known compression modules.
+we may create only one common fixup handler for all known compression modules.
 It would help to
 
 =over 4
@@ -172,14 +197,13 @@ Microsoft states that this problem was first corrected in Internet Explorer 6 Se
 
 Since then, later versions of MSIE are not supposed to carry this bug at all.
 
-Because the effect is not investigated in appropriate details,
-this version of the handler does not restrict compression for MSIE over HTTP.
+This version of the handler does not restrict compression for MSIE over HTTP.
 
 Restriction over HTTPS for all versions of MSIE could be configured with
 
     PerlSetVar RestrictMSIEoverSSL On
 
-in C<httpd.conf>.
+in C<httpd.conf> if required.
 
 =over 4
 
@@ -226,13 +250,21 @@ To activate printability for C<Netscape Navigator 4.X> you need to place
 
 in your C<httpd.conf>. It turns off any compression for that buggy browser.
 
+On Wednesday January 15, 2003 Michael Schroepl wrote to C<mod_gzip@lists.over.net>:
+
+    ... Our customers still include 17% Netscape 4 users, sigh ...
+
 =head2 Partial Request from Any Web Client
 
-This version unsets HTTP header C<Accept-Encoding> for any web client conditionally when
+In accordance with C<rfc2616> server I<may> ignore C<Range> features of the request and respond
+with full HTTP body indeed. Usually you should not care about compression features in this case.
+
+For experimental reasons this version unsets HTTP header C<Accept-Encoding> for any web client conditionally when
 
     PerlSetVar RestrictRangeCompression On
 
 is present in your C<httpd.conf> and HTTP header C<Range> is present within the request.
+You may experiment with this option when you know what you are doing...
 
 =head1 DEPENDENCIES
 

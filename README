@@ -1,25 +1,15 @@
-Apache/CompressClientFixup version 0.05
+Apache/CompressClientFixup version 0.06
 =======================================
-
-
-INSTALLATION
-
-To install this module type the following:
-
-   perl Makefile.PL
-   make
-   make test
-   make install
 
 =head1 NAME
 
 Apache::CompressClientFixup - Perl extension for Apache-1.3.X to avoid C<gzip> compression
-for some buggy browsers.
+for known buggy browsers.
 
 =head1 INTRODUCTION
 
 Standard gzip compression significantly scales bandwidth,
-and helps to please clients, who receive the compressed content faster,
+and helps to satisfy clients, who receive the compressed content faster,
 especially on dialups.
 
 Obviously, the success of proper implementation of content compression depends on quality of both sides
@@ -54,9 +44,9 @@ to the client which fails to declare self capability to uncompress data accordin
 Thinking this way, we would try to unset the incoming C<Accept-Encoding> HTTP header
 for those buggy clients, because they would better never set it up...
 
-We would separate this fix-up handler from the main compression module for a good reason.
+We would separate this fixup handler from the main compression module for a good reason.
 Basically, we would benefit from this extraction, because in this case
-we may create only one common fix-up handler for all known compression modules.
+we may create only one common fixup handler for all known compression modules.
 It would help to
 
 =over 4
@@ -102,20 +92,19 @@ In accordance with Q313712 and Q312496, these bugs affect transmissions through
 
 and special patches for MSIE-5.5 and MSIE-6.0 were published on Internet.
 
-Microsoft has confirmed that this was a problem in the Microsoft products.
+Microsoft confirmed that this was a problem in the Microsoft products.
 
 Microsoft states that this problem was first corrected in Internet Explorer 6 Service Pack 1.
 
 Since then, later versions of MSIE are not supposed to carry this bug at all.
 
-Because the effect is not investigated in appropriate details,
-this version of the handler does not restrict compression for MSIE over HTTP.
+This version of the handler does not restrict compression for MSIE over HTTP.
 
 Restriction over HTTPS for all versions of MSIE could be configured with
 
     PerlSetVar RestrictMSIEoverSSL On
 
-in httpd.conf.
+in httpd.conf if necessary.
 
 =over 4
 
@@ -161,15 +150,23 @@ To activate printability for C<Netscape Navigator 4.X> you need to place
     PerlSetVar NetscapePrintable On
 
 in your C<httpd.conf>.
-In this case it turns off any compression for those buggy browser...
+In this case it turns off any compression for that buggy browser.
+
+On Wednesday January 15, 2003 Michael Schroepl wrote to C<mod_gzip@lists.over.net>:
+
+    ... Our customers still include 17% Netscape 4 users, sigh ...
 
 =head2 Partial Request from Any Web Client
 
-This version unsets HTTP header C<Accept-Encoding> for any web client conditionally when
+In accordance with C<rfc2616> server I<may> ignore C<Range> features of the request and respond
+with full HTTP body indeed. Usually you should not care about compression features in this case.
+
+Just in case this version unsets HTTP header C<Accept-Encoding> for any web client conditionally when
 
     PerlSetVar RestrictRangeCompression On
 
 is present in your C<httpd.conf> and HTTP header C<Range> is present within the request.
+You may experiment with this option when you know what you are doing...
 
 =head1 INSTALLATION
 
@@ -191,7 +188,7 @@ When you have your local copy of the package type the following:
 
 Note: You should be a root to succeed with the last step...
 
-To install the package from the CPAN try to run
+To install the package from CPAN try to run
 
    perl -CPAN -e "install Apache::CompressClientFixup"
 

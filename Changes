@@ -1,8 +1,13 @@
 Revision history for Perl extension Apache::CompressClientFixup
 
+0.06  Wed Jan 15 16:59:00 2003
+	- file TODO has been added to distribution
+	- documentation is edited.
+
 0.05  Mon Jan 13 11:12:00 2003
 	- Partial Request branch is modified in order to make it configurable.
 	- documentation is edited.
+	  5107 Jan 13 14:51 Apache-CompressClientFixup-0.05.tar.gz
 
 0.04  Tue Jan 07 21:23:00 2003
 	- MSIE over SSL is modified in order to make it configurable.
@@ -18,6 +23,7 @@ Revision history for Perl extension Apache::CompressClientFixup
 0.02  Sun Oct 20 22:51:00 2002
 	- further development in accordance with the results of discussion on "ContentCompressionClients".
 	- documentation is edited and incorporated.
+	- Thanks to Bob Eng for the link to Microsoft Knowledge Base articles Q313712/Q312496.
 	  7855 Nov 10 23:09 Apache-CompressClientFixup-0.02.tar.gz
 
 0.01  Tue Jun 11 13:10:11 2002
