@@ -7,7 +7,7 @@ use Apache::Log();
 use Apache::URI();
 
 use vars qw($VERSION);
-$VERSION = "0.04";
+$VERSION = "0.05";
 
 sub handler {
 	my $r = shift;
@@ -28,7 +28,8 @@ sub handler {
 
 	# Range for any Client:
 	# =====================
-	if ($r->header_in('Range')) {
+	if ( (lc $r->dir_config('RestrictRangeCompression') eq 'on')
+	     and ($r->header_in('Range')) ) {
 		$r->headers_in->unset('Accept-Encoding');
 		$r->log->info($qualifiedName.$msg.'Range HTTP header');
 		return OK;
@@ -36,7 +37,7 @@ sub handler {
 
 	# NN-4.X:
 	# =======
-	if (($r->header_in('User-Agent') =~ /Mozilla\/4\./o) and (!($r->header_in('User-Agent') =~ /compatible/io))) {
+	if ( ($r->header_in('User-Agent') =~ /Mozilla\/4\./o) and (!($r->header_in('User-Agent') =~ /compatible/io))) {
 		my $printable = lc $r->dir_config('NetscapePrintable') eq 'on';
 		if ( $printable ){
 			$r->headers_in->unset('Accept-Encoding');
@@ -51,10 +52,10 @@ sub handler {
 	# M$IE:
 	# =====
 	if ( (lc $r->dir_config('RestrictMSIEoverSSL') eq 'on')
-		and ($uri_ref->scheme() =~ /https/io) and ($r->header_in('User-Agent') =~ /MSIE/io) ) {
-			$r->headers_in->unset('Accept-Encoding');
-			$r->log->info($qualifiedName.$msg.'MSIE over SSL');
-			return OK;
+	    and ($uri_ref->scheme() =~ /https/io) and ($r->header_in('User-Agent') =~ /MSIE/io) ) {
+		$r->headers_in->unset('Accept-Encoding');
+		$r->log->info($qualifiedName.$msg.'MSIE over SSL');
+		return OK;
 	}
 	return OK;
 }
@@ -166,17 +167,33 @@ In accordance with Q313712 and Q312496, these bugs affect transmissions through
 and special patches for MSIE-5.5 and MSIE-6.0 were published on Internet.
 
 Microsoft has confirmed that this was a problem in the Microsoft products.
+
 Microsoft states that this problem was first corrected in Internet Explorer 6 Service Pack 1.
 
 Since then, later versions of MSIE are not supposed to carry this bug at all.
 
 Because the effect is not investigated in appropriate details,
-this version of the handler does not restrict compression for MSIE.
+this version of the handler does not restrict compression for MSIE over HTTP.
+
 Restriction over HTTPS for all versions of MSIE could be configured with
 
     PerlSetVar RestrictMSIEoverSSL On
 
 in C<httpd.conf>.
+
+=over 4
+
+=item Note:
+
+It is not recommended any more to restrict MSIE over SSL since Vlad Jebelev reported
+successfull delivery of compressed content to MSIE over SSL providing dynamic Apache
+downgrade from HTTP/1.1 to HTTP/1.0 in accordance with SSL recommendations.
+Since then it would be considered preferable solution to downgrade the protocol for this client
+instead of discarding compression.
+
+This approach works fine with C<Apache::Dynagzip 0.09>, or later.
+
+=back
 
 =head2 Netscape 4.X
 
@@ -199,17 +216,23 @@ See detailed description of these bugs at
 http://www.schroepl.net/projekte/mod_gzip/browser.htm - Michael Schroepl's Web Site.
 
 This version serves cases (a) and (b) as default for this type of browsers.
+Namely, it unsets HTTP request header C<Accept-Encoding> for C<Content-Type: application/x-javascript>
+and for C<Content-Type: text/css> when the request is originated from Netscape 4.X client.
+
 This version serves cases (c) and (d) conditionally:
 To activate printability for C<Netscape Navigator 4.X> you need to place
 
     PerlSetVar NetscapePrintable On
-      
+
 in your C<httpd.conf>. It turns off any compression for that buggy browser.
 
 =head2 Partial Request from Any Web Client
 
-This version unsets HTTP header C<Accept-Encoding> for any web client
-if the HTTP header C<Range> is presented within the request.
+This version unsets HTTP header C<Accept-Encoding> for any web client conditionally when
+
+    PerlSetVar RestrictRangeCompression On
+
+is present in your C<httpd.conf> and HTTP header C<Range> is present within the request.
 
 =head1 DEPENDENCIES
 
@@ -219,7 +242,7 @@ This module requires these other modules and libraries:
    Apache::Log;
    Apache::URI;
 
-which come bandled with C<mod_perl>.
+which come bandled with C<mod_perl>. You don't need to install them additionally.
 
 =head1 AUTHOR
 
@@ -239,6 +262,8 @@ The latest version of this module can be found on CPAN.
 C<mod_perl> at F<http://perl.apache.org>
 
 C<Apache::Dynagzip> at F<http://search.cpan.org/author/SLAVA/>
+
+Web Content Compression FAQ at F<http://perl.apache.org/docs/tutorials/client/compression/compression.html>
 
 Michael Schroepl's Web Site at F<http://www.schroepl.net/projekte/mod_gzip/browser.htm>
 
