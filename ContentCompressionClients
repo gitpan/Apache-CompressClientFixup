@@ -1,0 +1,364 @@
+=doc
+
+=head1 Features of Content Compression for Different Web Clients
+
+- tutorial on practical implementation of web content compression for mod_perl
+developers and system administrators of C<Apache-1.3.X>. Version 0.02
+
+=head1 INTRODUCTION
+
+Standard gzip compression significantly scales the bandwidth on HTTP/1.1,
+and helps to please clients, who receive the compressed content faster,
+especially on dialups.
+It's easy to explain to any executive how good it is for him to compress his web traffic.
+
+=item 
+
+On May 21, 2002 Peter J. Cranstone wrote to the mod_gzip mailing list:
+I<"..With 98% of the world on a dial up modem,
+all they care about is how long it takes to download a page.
+It doesn't matter if it consumes a few more CPU cycles if the customer is happy.
+It's cheaper to buy a newer faster box, than it is to acquire new customers..">
+
+=back
+
+Indeed, the use of web compression is not that popular to date.
+My own observations show that there are only few content providers, who compress their traffic.
+I would mention Oracle as the leader, which covers a significant percent
+of its on-line documentation with gzip compression.
+On Yahoo there are few pages gzipped only.
+Even the US governmental sites do not use content compression. Why?
+
+It is well known, that the success of the content compression depends on quality of both sides
+of the request-response transaction.
+Since on server side we have 6 open source modules/packages for web content compression (in alphabetic order):
+
+ ·Apache::Compress
+ ·Apache::Dynagzip
+ ·Apache::Gzip
+ ·Apache::GzipChain
+ ·mod_deflate
+ ·mod_gzip
+
+the main problem deals with fact that some buggy web clients
+declare the ability to receive
+and decompress gzip data in their HTTP requests, but fail to keep promises
+when the response arrives really compressed.
+I would not consider the efforts of browser vendors sufficient these days.
+Traditionally they do not care enough to inform the network community about their
+decompression bugs, and necessity to patch.
+Indeed, the content providers traditionally have to care about their web clients
+adjusting own server side code.
+And it is a very common problem for any of mentioned compression modules.
+
+Basically, we could benefit from the extraction of the client fix-up conditions
+out of each data compression module.
+It would be convenient to have only one fix-up
+module, common to all compression handlers. It should help to
+
+ ·Share specific information;
+ ·Simplify the control of every compression module;
+ ·Wider reuse the code of the requests' correction;
+ ·Simplify the upgrade of clients bug correction code.
+
+Let's see how the Apache architecture helps to solve the problem.
+
+  Note: This approach does not require the immediate reengineering
+        of existent compression modules.
+
+=head1 COMMON APPROACH
+
+Content compression details were standardized since HTTP/1.1 (see rfc2068).
+In accordance with the main idea, the client initially has to submit
+the header C<"Accept-Encoding: E<lt>listE<gt>"> within the data request
+to allow server to reply (to the current request) with appropriately compressed data.
+
+It's implied, that the server should refrain from replying with the data compressed,
+when the header C<"Accept-Encoding"> is missed,
+or when no one type of available compressions matches the provided list.
+
+According to our definition, the buggy web client is a guy who
+declares the ability to receive
+and decompress gzip data in HTTP requests, but fails to keep promises
+when the response arrives really compressed.
+Dealing with buggy web clients we may say, that those guys
+just send the header C<"Accept-Encoding"> improperly (because they'd better never do that).
+Fortunately, we can fix this up for them in most cases
+editing C<$r-E<gt>header_in('Accept-Encoding')> appropriately prior to implementation
+of our favorite compression handler.
+
+Any early stage of the request proccessing is good for that as
+long as the following stages do not alter this header.
+The Fix-Up stage is the most appropriate in terms of Apache architecture.
+It is the last perl hook followed by the content generation phase.
+
+=item 
+
+Remark 1: There are still few (old experimental) HTTP/1.0 clients
+capable to decompress some modern compression formats.
+Should we count on them providing compression for HTTP/1.0 sometimes?
+I have good reasons to refrain from doing that.
+
+Remark 2: Being lucky to use mod_perl for integration projects,
+I'm wondering about extra complexities (we might face in future),
+resulted from the use of extended CGI/1.1 in real applications.
+Definitely, CGI/1.1 does not make our life easier...
+
+Remark 3: One more source of complexity comes from the relations of browser vendors
+with the browser-plug-in vendors.
+Who should care about the decompression of the data coming to the plug-in?
+The conventional philosophy sounds this way:
+I<When data is ordered by the browser for the particular plug-in,
+the name of that plug-in should be mentioned in C<"User-Agent"> HTTP header anyway (for the current request);
+When the browser does not provide the control over the request's HTTP headers for the particular plug-in,
+the browser should care fully about the real format of data being transferred to that plug-in>.
+Unfortunately, it does not seem to be a regular practice to date.
+
+=back
+
+=head1 KNOWN BUGGY CLIENTS
+
+The following list is compiled in alphabetical order.
+Please, send me a message if you find something new/incorrect.
+
+=head2 Galeon
+
+Fails to provide Mozilla version.
+
+ mask of User-Agent = "Galeon)"
+
+Fails to decompress and display data.
+
+ (by Igor Sysoev)
+
+=head2 Microsoft Internet Explorer 4.X
+
+ mask of User-Agent = "MSIE 4"
+
+Fails to decompress GET data when
+
+ $r->header_in('Range') > 0
+or
+ length($r->uri) > 253
+
+ (by Igor Sysoev)
+
+Fails to decompress the response to POST request.
+
+ (by Alvar C.H. Freude)
+
+=head2 Microsoft Internet Explorer 6.0
+
+ mask of User-Agent = "MSIE 6.0"
+
+Fails to decompress the response on SSL connection (when refresh).
+
+  The issue comes from:
+
+Q: When I press "refresh" on my IE6 browser, the page is getting corrupted!
+
+A: Unfortunately, IE6 (and perhaps earlier versions?) appears to have a bug
+with gzip over SSL where the first 2048 characters are not included in the
+HTML rendering of the page when refresh is pressed. It only seems to happen
+on longish pages, and not when the page is first loaded. In fact, sometimes
+it doesn't happen at all. The only current solution is to put a 2048
+character comment at the start of your longish pages of all spaces (which
+compresses pretty well, fortunately).
+
+ (by missed source)
+
+=head2 Netscape 4.XX
+
+ mask of User-Agent = "Mozilla/4." with no "compatible"
+
+ Netscape 4.XX is failing to
+ a) handle <script> referencing compressed JavaScript files (Content-Type: application/x-javascript)
+ b) handle <link>   referencing compressed CSS files (Content-Type: text/css)
+ c) display the source code of compressed HTML files
+ d) print compressed HTML files
+
+ (by Michael Schroepl)
+
+=head2 SkipStone
+
+Fails to provide Mozilla version.
+
+ mask of User-Agent = "SkipStone)"
+
+Fails to decompress and display data.
+
+ (by Igor Sysoev)
+
+=head1 BASIC SOLUTION
+
+Let's create an easy editable handler for the Fix-Up stage of the request processing.
+
+We need to be as specific as possible about the declined clients.
+Otherwise we risk to decrease the efficiency of web compression on our server.
+
+Create new project with
+
+  h2xs -A -X -n Apache::CompressClientFixup
+
+Edit CompressClientFixup.pm to
+
+=head2 Examle Handler
+
+  package Apache::CompressClientFixup;
+
+  use 5.004;
+  use strict;
+  use Apache::Constants qw(OK DECLINED);
+  use Apache::Log();
+  use Apache::URI();
+
+  use vars qw($VERSION);
+  $VERSION = "0.01";
+
+  sub handler {
+	my $r = shift;
+	return DECLINED unless $r->header_in('Accept-Encoding') =~ /gzip/io; # have nothing to downgrade
+
+	# since the compression is ordered we have a job:
+
+	if ($r->protocol =~ /http\/1\.0/io) {
+		# it is not supposed to be compressed:
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+	if ($r->header_in('User-Agent') =~ /MSIE 4\./o) {
+		if ($r->method =~ /POST/io) {
+			$r->headers_in->unset('Accept-Encoding');
+			return OK;
+		}
+		if ($r->header_in('Range')) {
+			$r->headers_in->unset('Accept-Encoding');
+			return OK;
+		}
+		if (length($r->uri) > 245) {
+			$r->headers_in->unset('Accept-Encoding');
+		}
+		return OK;
+	}
+	my $uri_ref = Apache::URI->parse($r);
+	if (($uri_ref->scheme() =~ /https/io) and ($r->header_in('User-Agent') =~ /MSIE 6\.0/o)) {
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+	if ($r->header_in('Via') =~ /^1\.1\s/o) {
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+	if ($r->header_in('Via') =~ /^Squid\//o) {
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+	if ($r->header_in('User-Agent') =~ /Galeon\)/o) {
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+	if ($r->header_in('User-Agent') =~ /Mozilla\/4\.78/o) {
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+	if ($r->header_in('User-Agent') =~ /Opera 3\.5/o) {
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+	if ($r->header_in('User-Agent') =~ /SkipStone\)/o) {
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+	if ($r->header_in('User-Agent') =~ /w3m\/0\.2\.1/o) {
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+	if ($r->header_in('User-Agent') =~ /Mozilla\/4\.79/o) {
+		# there are some features for this agent:
+		#
+		# uncomment the following branch if you wish to have your content
+		# printable on Netscape Navigator 4.79:
+		#
+		# $r->headers_in->unset('Accept-Encoding');
+		# return OK;
+		#
+		# keep the following lines uncommented anyway:
+		#
+		if (($r->content_type =~ /application\/x-javascript/io) or ($r->content_type =~ /text\/css/io)) {
+			$r->headers_in->unset('Accept-Encoding');
+		}
+		return OK;
+	}
+	if (($r->header_in('User-Agent') =~ /Mozilla\/4\.0/o) and (!($r->header_in('User-Agent') =~ /compatible/io))) {
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+	if ($r->header_in('User-Agent') =~ /Lynx\/2\.8\.4rel\.1 libwww-FM\/2\.14 SSL-MM\/1\.4\.1 OpenSSL\/0\.9\.6b/o) {
+		$r->headers_in->unset('Accept-Encoding');
+		return OK;
+	}
+  }
+
+  1;
+
+=head2 Comments
+
+There are no needs to validate the content-type for plug-ins, if you can separate
+those sources, and to place them in uncompressed area on your server. These days it seems to be the most
+effective way, because the information about plud-ins is still insufficient.
+
+You know, there is more than one way to configure this Apache handler.
+To make the preview of this tutorial available for discussion I use for example
+
+  PerlModule Apache::CompressClientFixup
+    <Location /devdoc/Dynagzip>
+      SetHandler perl-script
+      PerlFixupHandler Apache::CompressClientFixup
+      Order Allow,Deny
+      Allow from All
+    </Location>
+
+providing dynamic gzip compression with
+
+  PerlModule Apache::Dynagzip
+    <Files ~ "*\.html">
+      SetHandler perl-script
+      PerlHandler Apache::Dynagzip
+    </Files>
+
+So far, the http://devl4.outlook.net/devdoc/ContentCache/ContentCache.html
+should not be viewable with buggy clients...
+
+=head1 CONCLUSION
+
+You don't need to copy this Apache::CompressClientFixup handler line-by-line.
+You might wish better to install the last version from CPAN and make your
+own edition in accordance with your very own needs.
+
+This solution is fully compatible with
+
+ ·Apache::Compress
+ ·Apache::Dynagzip
+ ·Apache::Gzip
+ ·Apache::GzipChain
+
+It might be helpful for C-written
+
+ ·mod_deflate
+ ·mod_gzip
+
+on mod_perl enabled Apache.
+
+=head1 HELPFUL RESOURCES
+
+ http://www.ietf.org/rfc.html - rfc search by number (+ index list)
+ http://cgi-spec.golux.com/draft-coar-cgi-v11-03-clean.html CGI/1.1 rfc
+ http://sysoev.ru/mod_deflate/readme.html#browsers - Igor Sysoev's Site (Russian)
+ http://www.schroepl.net/projekte/mod_gzip/browser.htm - Michael Schroepl's Site
+
+=head1 AUTHOR
+
+Slava Bizyayev E<lt>slava@cpan.orgE<gt> - Freelance Software Developer & Consultant.
+
+Copyright (C) 2002 Slava Bizyayev. All rights reserved.
+
