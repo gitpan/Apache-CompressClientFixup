@@ -1,8 +1,12 @@
 Revision history for Perl extension Apache::CompressClientFixup
 
+0.07  Sun Jul 20 14:30:00 2003
+	- unnecessary warnings were patched with diff-file contributed by Rob Bloodgood.
+
 0.06  Wed Jan 15 16:59:00 2003
 	- file TODO has been added to distribution
 	- documentation is edited.
+	  5559 Jun 23 23:16 Apache-CompressClientFixup-0.06.tar.gz
 
 0.05  Mon Jan 13 11:12:00 2003
 	- Partial Request branch is modified in order to make it configurable.

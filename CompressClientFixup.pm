@@ -7,7 +7,7 @@ use Apache::Log();
 use Apache::URI();
 
 use vars qw($VERSION);
-$VERSION = "0.06";
+$VERSION = "0.07";
 
 sub handler {
 	my $r = shift;
@@ -21,15 +21,18 @@ sub handler {
 	}
 	$r->log->debug($qualifiedName.' has a client '.$r->header_in('User-Agent')
 		.' which requests scheme '.$uri_ref->scheme().' over '.$r->protocol.' for uri = '.$r->uri.$dbg_msg);
+    {
+	local $^W = 0; # quiet warning when there is no 'Accept-Encoding' header.
 	return DECLINED unless $r->header_in('Accept-Encoding') =~ /gzip/io; # have nothing to downgrade
+    }
 
 	# since the compression is ordered we have a job:
 	my $msg = ' downgrades the Accept-Encoding due to '; # message patern to log
 
 	# Range for any Client:
 	# =====================
-	if ( (lc $r->dir_config('RestrictRangeCompression') eq 'on')
-	     and ($r->header_in('Range')) ) {
+    if ( lc $r->dir_config('RestrictRangeCompression') eq 'on'
+	 and $r->header_in('Range') ) {
 		$r->headers_in->unset('Accept-Encoding');
 		$r->log->info($qualifiedName.$msg.'Range HTTP header');
 		return OK;
@@ -45,12 +48,17 @@ sub handler {
 	# ... Our customers still include 17% Netscape 4 users, sigh ...
 	# 
  
-	if ( ($r->header_in('User-Agent') =~ /Mozilla\/4\./o) and (!($r->header_in('User-Agent') =~ /compatible/io))) {
+    if ( $r->header_in('User-Agent') and
+	 ($r->header_in('User-Agent') =~ /Mozilla\/4\./o) and
+	 (!($r->header_in('User-Agent') =~ /compatible/io))
+       ) {
 		my $printable = lc $r->dir_config('NetscapePrintable') eq 'on';
 		if ( $printable ){
 			$r->headers_in->unset('Accept-Encoding');
 			$r->log->info($qualifiedName.$msg.'printable for NN-4.X');
-		} elsif (($r->content_type =~ /application\/x-javascript/io) or ($r->content_type =~ /text\/css/io)) {
+	} elsif (defined $r->content_type and # quiets a warning if $r->content_type isn't defined.
+		 $r->content_type =~ /application\/x-javascript|text\/css/io
+		) {
 			$r->headers_in->unset('Accept-Encoding');
 			$r->log->info($qualifiedName.$msg.'content type for NN-4.X');
 		}
@@ -159,6 +167,10 @@ It would help to
 =item ·Simplify further upgrades.
 
 =back
+
+=head2 Acknowledgments
+
+Thanks to Rob Bloodgood for the patch that helps to eliminate some unnecessary warnings.
 
 =head1 DESCRIPTION
 

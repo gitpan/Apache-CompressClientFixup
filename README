@@ -1,4 +1,4 @@
-Apache/CompressClientFixup version 0.06
+Apache/CompressClientFixup version 0.07
 =======================================
 
 =head1 NAME
@@ -60,6 +60,10 @@ It would help to
 =item ·Simplify further upgrades.
 
 =back
+
+=head2 Acknowledgments
+
+Thanks to Rob Bloodgood for the patch that helps to eliminate some unnecessary warnings.
 
 =head1 DESCRIPTION
 
