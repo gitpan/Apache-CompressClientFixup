@@ -1,4 +1,4 @@
-Apache/CompressClientFixup version 0.03
+Apache/CompressClientFixup version 0.04
 =======================================
 
 
@@ -20,7 +20,7 @@ for some buggy browsers.
 
 Standard gzip compression significantly scales bandwidth,
 and helps to please clients, who receive the compressed content faster,
-especially on dial-ups.
+especially on dialups.
 
 Obviously, the success of proper implementation of content compression depends on quality of both sides
 of the request-response transaction.
@@ -107,9 +107,13 @@ Microsoft states that this problem was first corrected in Internet Explorer 6 Se
 
 Since then, later versions of MSIE are not supposed to carry this bug at all.
 
-Since the effect is not investigated in appropriate details,
-this version of the handler does not restrict compression for MSIE,
-except HTTPS.
+Because the effect is not investigated in appropriate details,
+this version of the handler does not restrict compression for MSIE by default.
+Restriction over HTTPS for all versions of MSIE could be configured with
+
+    PerlSetVar RestrictMSIEoverSSL On
+
+in httpd.conf.
 
 =head2 Netscape 4.X
 
@@ -132,7 +136,12 @@ See detailed description of these bugs at
 http://www.schroepl.net/projekte/mod_gzip/browser.htm - Michael Schroepl's Web Site.
 
 This version serves cases (a) and (b) as default for this type of browsers.
-This version serves cases (c) and (d) conditionally.
+This version serves cases (c) and (d) conditionally:
+To activate printability for C<Netscape Navigator 4.X> you need to place
+
+    PerlSetVar NetscapePrintable On
+
+in your C<httpd.conf>.
 
 =head2 Partial Request from Any Web Client
 
@@ -177,6 +186,19 @@ Use the idea of the following example to create your own configuration:
       Allow from All
   </Location>
 
+You can, for example, restrict compression for MSIE over SSL
+and restrict compression for C<Netscape Navigator 4.X> with
+
+  PerlModule Apache::CompressClientFixup
+  <Location /devdoc/Dynagzip>
+    SetHandler perl-script
+    PerlFixupHandler Apache::CompressClientFixup
+    PerlSetVar RestrictMSIEoverSSL On
+    PerlSetVar NetscapePrintable On
+    Order Allow,Deny
+    Allow from All
+  </Location>
+
 =head1 DEPENDENCIES
 
 This module requires these other modules and libraries:
@@ -193,11 +215,12 @@ Slava Bizyayev E<lt>slava@cpan.orgE<gt> - Freelance Software Developer & Consult
 
 =head1 COPYRIGHT AND LICENSE
 
-I<Copyright (C) 2002 Slava Bizyayev. All rights reserved.>
+I<Copyright (C) 2002, 2003 Slava Bizyayev. All rights reserved.>
 
-  This package is free software.
-  You can use it, redistribute it, and/or modify it under the same terms as Perl itself.
-  The latest version of this module can be found on CPAN.
+This package is free software.
+You can use it, redistribute it, and/or modify it under the same terms as Perl itself.
+
+The latest version of this module can be found on CPAN.
 
 =head1 SEE ALSO
 

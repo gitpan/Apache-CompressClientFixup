@@ -1,8 +1,14 @@
-Revision history for Perl extension Apache::CompressClientFixup.
+Revision history for Perl extension Apache::CompressClientFixup
+
+0.04  Tue Jan 07 21:23:00 2003
+	- MSIE over SSL is modified in order to make it configurable.
+	- documentation is edited.
+	- article "ContentCompressionClients" deleted from the package.
 
 0.03  Thu Jan 02 23:00:00 2003
 	- MSIE over SSL is modified.
 	- documentation is edited.
+	  8064 Jan  2 23:31 Apache-CompressClientFixup-0.03.tar.gz
 
 0.02  Sun Oct 20 22:51:00 2002
 	- further development in accordance with the results of discussion on "ContentCompressionClients".

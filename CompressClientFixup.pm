@@ -7,7 +7,7 @@ use Apache::Log();
 use Apache::URI();
 
 use vars qw($VERSION);
-$VERSION = "0.03";
+$VERSION = "0.04";
 
 sub handler {
 	my $r = shift;
@@ -50,10 +50,11 @@ sub handler {
 
 	# M$IE:
 	# =====
-	if (($uri_ref->scheme() =~ /https/io) and ($r->header_in('User-Agent') =~ /MSIE/io)) {
-		$r->headers_in->unset('Accept-Encoding');
-		$r->log->info($qualifiedName.$msg.'MSIE over SSL');
-		return OK;
+	if ( (lc $r->dir_config('RestrictMSIEoverSSL') eq 'on')
+		and ($uri_ref->scheme() =~ /https/io) and ($r->header_in('User-Agent') =~ /MSIE/io) ) {
+			$r->headers_in->unset('Accept-Encoding');
+			$r->log->info($qualifiedName.$msg.'MSIE over SSL');
+			return OK;
 	}
 	return OK;
 }
@@ -170,8 +171,12 @@ Microsoft states that this problem was first corrected in Internet Explorer 6 Se
 Since then, later versions of MSIE are not supposed to carry this bug at all.
 
 Because the effect is not investigated in appropriate details,
-this version of the handler does not restrict compression for MSIE,
-except C<HTTPS>. By default, this version turnes compression off for MSIE over SSL.
+this version of the handler does not restrict compression for MSIE.
+Restriction over HTTPS for all versions of MSIE could be configured with
+
+    PerlSetVar RestrictMSIEoverSSL On
+
+in C<httpd.conf>.
 
 =head2 Netscape 4.X
 
@@ -222,11 +227,12 @@ Slava Bizyayev E<lt>slava@cpan.orgE<gt> - Freelance Software Developer & Consult
 
 =head1 COPYRIGHT AND LICENSE
 
-I<Copyright (C) 2002 Slava Bizyayev. All rights reserved.>
+I<Copyright (C) 2002, 2003 Slava Bizyayev. All rights reserved.>
 
-  This package is free software.
-  You can use it, redistribute it, and/or modify it under the same terms as Perl itself.
-  The latest version of this module can be found on CPAN.
+This package is free software.
+You can use it, redistribute it, and/or modify it under the same terms as Perl itself.
+
+The latest version of this module can be found on CPAN.
 
 =head1 SEE ALSO
 
